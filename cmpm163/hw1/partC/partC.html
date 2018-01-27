@@ -98,15 +98,15 @@
                      
                      float actualX = cx + float(x)*(1.0/textureSize.x);
                      float actualY = cy + float(y)*(1.0/textureSize.y);
-                     float val = texture2D(bufferTexture, vec2(actualX, actualY)).r;
+                     float val = texture2D(bufferTexture, vec2(actualX, actualY)).g;
                      // if this is the highest state, rollover to checking for 0
-                     if(C.r >= 1.0 - (3.0/2.0)*stateVal) {
+                     if(C.g >= 1.0 - (3.0/2.0)*stateVal) {
                          if(val <= (stateVal/2.0)) {
                              cnt++;
                          }
                      } else {
-                         if (val >= C.r + (stateVal/2.0) &&
-                             val <= C.r + (3.0/2.0)*stateVal) {
+                         if (val >= C.g + (stateVal/2.0) &&
+                             val <= C.g + (3.0/2.0)*stateVal) {
                              cnt++;
                          }
                      }                     
@@ -117,11 +117,11 @@
              }
 
              if(cnt >= threshold) {
-                 float newVal = C.r + stateVal;
+                 float newVal = C.g + stateVal;
                  if(newVal >= 1.0 - (stateVal/2.0)) {
                      newVal = 0.0;
                  }
-                 gl_FragColor = vec4(newVal, newVal, newVal, 1.0);
+                 gl_FragColor = vec4(C.r, newVal, C.b, 1.0);
              } else {
                  gl_FragColor = C;
              }
@@ -268,9 +268,9 @@
                  var stride = i * 4;
 
                  var state = Math.floor(Math.floor(Math.random()*options.maxStates) * 255 / options.maxStates);
-                 data[stride] = state;
+                 data[stride] = 255;
                  data[stride+1] = state;
-                 data[stride+2] = state;
+                 data[stride+2] = 0;
                  data[stride+3] = 255;
              }
 
