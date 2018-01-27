@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>demo - Phong shader</title>
+        <meta charset="utf-8">
+        <style>
+         body {
+             margin: 0px;
+             overflow: hidden;
+         }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script src="../three.js"></script>
+        <script>
+         var container;
+
+         var camera, scene, renderer;
+         var sphere, box, torusKnot;
+         var texture;
+         var fileLoader = new THREE.FileLoader();
+         var shaders = {};
+         var monkey;
+         var monkeyGeometry;
+         load();
+
+         function load() {
+             var todo = 6;
+             (new THREE.TextureLoader()).load('../ice_crust3.jpg', tex => {
+                 texture = tex;
+                 if(--todo == 0) {
+                     init();
+                 }
+             });
+             (new THREE.JSONLoader()).load('monkey.json', function(geometry, materials) {
+                 monkeyGeometry = geometry;
+                 if(--todo == 0) {
+                     init();
+                 }
+             });
+             ['deforming.vert', 'deforming.frag', 'squares.vert', 'squares.frag'].forEach(name => {
+                 fileLoader.load(name, data => {
+                     shaders[name] = data;
+                     if(--todo == 0) {
+                         init();
+                     }
+                 });
+             });
+         }
+         
+         function init() {
+             container = document.getElementById( 'container' );
+
+             camera = new THREE.PerspectiveCamera( 60.0, window.innerWidth / window.innerHeight, 0.1, 50 );
+             camera.position.z = 5;
+
+             scene = new THREE.Scene();
+
+             var light1 = new THREE.PointLight(0xff0000, 1, 0);
+             light1.position.set(0.0, 5.0, 5.0);
+             scene.add(light1);
+             var light2 = new THREE.PointLight(0x0000ff, 1, 0);
+             light2.position.set(0.0, -5.0, 5.0);
+             scene.add(light2);
+
+             // materials (ie, linking to the shader program)
+             var uniforms = THREE.UniformsUtils.merge([
+                 THREE.UniformsLib["lights"],
+                 {frame: {value: 0, type: '1f'}}
+             ]);
+             console.log(uniforms);
+             console.log(THREE.UniformsUtils.merge([
+                 THREE.UniformsLib["lights"],
+                 {frame: {value: 0, type: '1f'}}
+             ]));
+
+             var deformingMaterial = new THREE.ShaderMaterial({
+                 uniforms: uniforms,
+                 vertexShader: shaders['deforming.vert'],
+                 fragmentShader: shaders['deforming.frag'],
+                 lights: true
+             });
+
+             var squaresMaterial = new THREE.ShaderMaterial({
+                 uniforms: uniforms,
+                 vertexShader: shaders['squares.vert'],
+                 fragmentShader: shaders['squares.frag'],
+                 lights: true
+             });
+
+             var litTextureMaterial = new THREE.MeshPhongMaterial({
+                 map: texture
+             });
+             
+             var sphereGeometry = new THREE.SphereGeometry( 1, 64, 64 );
+             var boxGeometry = new THREE.BoxGeometry( 1, 1, 1 );
+             var torusKnotGeometry = new THREE.TorusKnotGeometry( 1, 0.1, 100, 16 );
+
+             sphere = new THREE.Mesh( sphereGeometry, deformingMaterial );
+             sphere.translateX(-2.5);
+             scene.add( sphere );
+
+             box = new THREE.Mesh( boxGeometry, litTextureMaterial );
+             box.translateX(0.0);
+             scene.add( box );
+
+             torusKnot = new THREE.Mesh( torusKnotGeometry, squaresMaterial);
+             torusKnot.translateX(2.5);
+             scene.add( torusKnot );
+
+             monkey = new THREE.Mesh( monkeyGeometry, litTextureMaterial);
+             monkey.translateY(2.0);
+             scene.add(monkey);
+
+             renderer = new THREE.WebGLRenderer();
+             renderer.setClearColor( 0x999999 );
+             renderer.setSize( window.innerWidth, window.innerHeight );
+             container.appendChild( renderer.domElement );
+
+             //make it so that resizing the browser window also resizes the scene
+             window.addEventListener( 'resize', onWindowResize, false );
+             animate();
+         }
+
+         function animate() {
+             requestAnimationFrame( animate );
+
+             var time = performance.now();
+
+             box.rotation.x = time * 0.00005;
+             box.rotation.y = time * 0.0005;
+
+             torusKnot.rotation.x = time * 0.0009;
+             monkey.rotation.x = time*0.001;
+             
+             sphere.material.uniforms.frame.value = time*0.001;
+
+             renderer.render( scene, camera );
+         }
+
+
+         function onWindowResize( event ) {
+             camera.aspect = window.innerWidth / window.innerHeight;
+             camera.updateProjectionMatrix();
+             renderer.setSize( window.innerWidth, window.innerHeight );
+         }
+        </script>
+    </body>
+</html>
