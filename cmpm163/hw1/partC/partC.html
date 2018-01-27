@@ -15,10 +15,21 @@
             <span style="display: inline-block;">Neighbor threshold (<span id="thresholdOutput">3</span>): <input onchange="optionChanged('threshold');" type="range" min="1" max="10" value="3" id="threshold"/></span>
             <span style="display: inline-block;">Neighbor distance (<span id="distanceOutput">1</span>): <input onchange="optionChanged('distance');" type="range" min="1" max="10" value="1" id="distance"/></span>
             <span style="display: inline-block;">Number of States (<span id="maxStatesOutput">3</span>): <input onchange="optionChanged('maxStates');" type="range" min="2" max="10" value="3" id="maxStates"/></span>
-            <span style="display: inline-block;">Distance type: <select id="distanceType" onchange="optionChanged('distanceType');">
-                <option value="0">Moore</option>
-                <option value="1">Von Neumann</option>
-            </select></span>
+            <span style="display: inline-block;">
+                Distance type:
+                <select id="distanceType" onchange="optionChanged('distanceType');">
+                    <option value="0">Moore</option>
+                    <option value="1">Von Neumann</option>
+                </select>
+            </span>
+            <span style="display: inline-block;">
+                Presets:
+                <select id="distanceType" onchange="presetChanged();">
+                    <option value="none"></option>
+                    <option value="313">313</option>
+                    <option value="Amoeba">Amoeba</option>
+                </select>
+            </span>
         </div>
         <div id="container"></div>
         <script src="../three.js"></script>
@@ -43,50 +54,57 @@
 
 	 uniform vec2 textureSize; //The width and height of our screen
 	 uniform sampler2D bufferTexture; //Our input texture
-         uniform float threshold;
-         uniform float distance;
-         uniform float distanceType;
-         uniform float maxStates;
+         uniform int threshold;
+         uniform int distance;
+         uniform int distanceType;
+         uniform int maxStates;
 
          varying vec2 vUV;
          
 	 void main() {
+             float stateVal = 1.0/float(maxStates);
 	     float cx = vUV.x;
 	     float cy = vUV.y;
 
              vec4 C = texture2D( bufferTexture, vec2( cx, cy ) );
 
              int cnt = 0;
-             for(int i=0; i<=21; i++) {
-                 int x = i-int(distance);
-                 for(int j=0; j<=21; j++) {
-                     int y = j-int(distance);
-                     if(x > int(distance) || y > int(distance)) {
+             for(int i=0; i<=20; i++) {
+                 int x = i-distance;
+                 for(int j=0; j<=20; j++) {
+                     int y = j-distance;
+                     if(x > distance || y > distance) {
                          break;
                      }
+                     
+                     // Von Neumann distance
+                     if(distanceType == 1 && int(abs(float(x)) + abs(float(y))) > distance) {
+                         continue;
+                     }
+                     
                      float actualX = cx + float(x)*(1.0/textureSize.x);
                      float actualY = cy + float(y)*(1.0/textureSize.y);
                      float val = texture2D(bufferTexture, vec2(actualX, actualY)).r;
                      // if this is the highest state, rollover to checking for 0
-                     if(C.r >= 1.0 - (3.0/2.0)*(1.0/maxStates)) {
-                         if(val <= (1.0/maxStates/2.0)) {
+                     if(C.r >= 1.0 - (3.0/2.0)*stateVal) {
+                         if(val <= (stateVal/2.0)) {
                              cnt++;
                          }
                      } else {
-		         if (val >= C.r + (1.0/maxStates/2.0) &&
-                             val <= C.r + (3.0/2.0)*(1.0/maxStates)) {
+		         if (val >= C.r + (stateVal/2.0) &&
+                             val <= C.r + (3.0/2.0)*stateVal) {
 		             cnt++;
 		         }
                      }                     
                  }
-                 if(x > int(distance)) {
+                 if(x > distance) {
                      break;
                  }
              }
 
-             if(float(cnt) >= threshold) {
-                 float newVal = C.r + (1.0/maxStates);
-                 if(newVal >= 1.0 - (1.0/maxStates/2.0)) {
+             if(cnt >= threshold) {
+                 float newVal = C.r + stateVal;
+                 if(newVal >= 1.0 - (stateVal/2.0)) {
                      newVal = 0.0;
                  }
                  gl_FragColor = vec4(newVal, newVal, newVal, 1.0);
@@ -100,8 +118,8 @@
          var camera;
          var renderer = new THREE.WebGLRenderer();
 
-         var resX = 300;
-         var resY = 300;
+         var resX = 256;
+         var resY = 256;
 
          var bufferScene = new THREE.Scene();
          var bufferMaterial;
@@ -149,6 +167,11 @@
 	     //Create 2 buffer textures
 	     FBO_A = new THREE.WebGLRenderTarget( resX, resY, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter});
 	     FBO_B = new THREE.WebGLRenderTarget( resX, resY, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter});
+             FBO_A.texture.wrapS = THREE.RepeatWrapping;
+             FBO_A.texture.wrapT = THREE.RepeatWrapping;
+             FBO_B.texture.wrapS = THREE.RepeatWrapping;
+             FBO_B.texture.wrapT = THREE.RepeatWrapping;
+
 	     
 	     //Begin by passing an initial "seed" texture to shader, containing randomly placed cells
 	     var dataTexture = createDataTexture();
@@ -157,10 +180,10 @@
 		 uniforms: {
 		     bufferTexture: { type: 't', value: dataTexture },
 		     textureSize: {type: 'v2', value: new THREE.Vector2( resX, resY )},  //shader doesn't have access to these global variables, so pass in the resolution
-                     threshold: {type: 'f', value: options.threshold},
-                     distance: {type: 'f', value: options.distance},
-                     distanceType: {type: 'f', value: options.distanceType},
-                     maxStates: {type: 'f', value: options.maxStates}
+                     threshold: {type: 'i', value: options.threshold},
+                     distance: {type: 'i', value: options.distance},
+                     distanceType: {type: 'i', value: options.distanceType},
+                     maxStates: {type: 'i', value: options.maxStates}
 		 },
 		 vertexShader: document.getElementById( 'vertexShader' ).innerHTML,
 		 fragmentShader: document.getElementById( 'fragmentShader' ).innerHTML
@@ -215,7 +238,10 @@
 
 	     // used the buffer to create a DataTexture
 	     console.log(data);
-	     var texture = new THREE.DataTexture( data, resX, resY, THREE.RGBAFormat );	     
+	     var texture = new THREE.DataTexture( data, resX, resY, THREE.RGBAFormat );
+             texture.wrapS = THREE.RepeatWrapping;
+             texture.wrapT = THREE.RepeatWrapping;
+             
 	     texture.needsUpdate = true; // just a weird thing that Three.js wants you to do after you set the data for the texture
 	     return texture;
          }
