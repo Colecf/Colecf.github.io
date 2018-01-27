@@ -12,10 +12,13 @@
     </head>
     <body>
         <div style="width: 100%; height: 50px; overflow: scroll">
-            <span style="display: inline-block;">Neighbor threshold (<span id="thresholdSliderOutput">3</span>): <input type="range" min="0" max="10" value="3" id="thresholdSlider"/></span>
-            <span style="display: inline-block;">Neighbor distance (<span id="maxStatesOutput">1</span>): <input type="range" min="0" max="10" value="1" id="maxStatesSlider"/></span>
-            <span style="display: inline-block;">Number of States (<span id="maxStatesOutput">3</span>): <input type="range" min="2" max="10" value="3" id="maxStatesSlider"/></span>
-            
+            <span style="display: inline-block;">Neighbor threshold (<span id="thresholdOutput">3</span>): <input onchange="optionChanged('threshold');" type="range" min="1" max="10" value="3" id="threshold"/></span>
+            <span style="display: inline-block;">Neighbor distance (<span id="distanceOutput">1</span>): <input onchange="optionChanged('distance');" type="range" min="1" max="10" value="1" id="distance"/></span>
+            <span style="display: inline-block;">Number of States (<span id="maxStatesOutput">3</span>): <input onchange="optionChanged('maxStates');" type="range" min="2" max="10" value="3" id="maxStates"/></span>
+            <span style="display: inline-block;">Distance type: <select id="distanceType" onchange="optionChanged('distanceType');">
+                <option value="0">Moore</option>
+                <option value="1">Von Neumann</option>
+            </select></span>
         </div>
         <div id="container"></div>
         <script src="../three.js"></script>
@@ -52,42 +55,34 @@
 	     float cy = vUV.y;
 
              vec4 C = texture2D( bufferTexture, vec2( cx, cy ) );
-             
-	     float left = cx - 1.0/textureSize.x;
-	     if (left < 0.0) { left = 1.0; }
-	     float right = cx + 1.0/textureSize.x;
-	     if (left > 1.0) { left = 0.0; }
 
-	     float down = cy - 1.0/textureSize.y;
-	     if (down < 0.0) { down = 1.0; }
-	     float up = cy + 1.0/textureSize.y;
-	     if (up > 1.0) { up = 0.0; }
-
-	     vec4 arr[8];
-
-	     arr[0] = texture2D( bufferTexture, vec2( cx   , up ));   //N
-	     arr[1] = texture2D( bufferTexture, vec2( right, up ));   //NE
-	     arr[2] = texture2D( bufferTexture, vec2( right, cy ));   //E
-	     arr[3] = texture2D( bufferTexture, vec2( right, down )); //SE
-	     arr[4] = texture2D( bufferTexture, vec2( cx   , down )); //S
-	     arr[5] = texture2D( bufferTexture, vec2( left , down )); //SW
-	     arr[6] = texture2D( bufferTexture, vec2( left , cy ));   //W
-	     arr[7] = texture2D( bufferTexture, vec2( left , up ));   //NW
-
-	     int cnt = 0;
-	     for(int i=0;i<8;i++){
-                 // if this is the highest state, rollover to checking for 0
-                 if(C.r >= 1.0 - (3.0/2.0)*(1.0/maxStates)) {
-                     if(arr[i].r <= (1.0/maxStates/2.0)) {
-                         cnt++;
+             int cnt = 0;
+             for(int i=0; i<=21; i++) {
+                 int x = i-int(distance);
+                 for(int j=0; j<=21; j++) {
+                     int y = j-int(distance);
+                     if(x > int(distance) || y > int(distance)) {
+                         break;
                      }
-                 } else {
-		     if (arr[i].r >= C.r + (1.0/maxStates/2.0) &&
-                         arr[i].r <= C.r + (3.0/2.0)*(1.0/maxStates)) {
-		         cnt++;
-		     }
+                     float actualX = cx + float(x)*(1.0/textureSize.x);
+                     float actualY = cy + float(y)*(1.0/textureSize.y);
+                     float val = texture2D(bufferTexture, vec2(actualX, actualY)).r;
+                     // if this is the highest state, rollover to checking for 0
+                     if(C.r >= 1.0 - (3.0/2.0)*(1.0/maxStates)) {
+                         if(val <= (1.0/maxStates/2.0)) {
+                             cnt++;
+                         }
+                     } else {
+		         if (val >= C.r + (1.0/maxStates/2.0) &&
+                             val <= C.r + (3.0/2.0)*(1.0/maxStates)) {
+		             cnt++;
+		         }
+                     }                     
                  }
-	     }
+                 if(x > int(distance)) {
+                     break;
+                 }
+             }
 
              if(float(cnt) >= threshold) {
                  float newVal = C.r + (1.0/maxStates);
@@ -115,13 +110,34 @@
          var plane;
          var fullScreenQuad;
 
-         var threshold = 3;
-         var distance = 1;
-         var distanceType = 0;
-         var maxStates = 3;
-         window.addEventListener( 'resize', onWindowResize, false );
-         setup();
+         var options = {
+             threshold: 3,
+             distance: 1,
+             distanceType: 0,
+             maxStates: 3
+         };
 
+         window.addEventListener( 'resize', onWindowResize, false );
+
+         function optionChanged(id) {
+             var slider = document.getElementById(id);
+             var output = document.getElementById(id+"Output");
+             if(output)
+                 output.innerHTML = slider.value;
+             options[id] = parseInt(slider.value);
+             reset();
+         }
+
+         function reset() {
+             bufferMaterial.uniforms.bufferTexture.value = createDataTexture();
+             bufferMaterial.uniforms.threshold.value = options.threshold;
+             bufferMaterial.uniforms.distance.value = options.distance;
+             bufferMaterial.uniforms.distanceType.value = options.distanceType;
+             bufferMaterial.uniforms.maxStates.value = options.maxStates;
+             console.log(options);
+         }
+         
+         setup();
          function setup() {
              //orthographic camera can be used for 2D
              camera = new THREE.OrthographicCamera( -resX/2, resX/2, resY/2, -resY/2, 0.1, 1000 );
@@ -139,12 +155,12 @@
 
 	     bufferMaterial = new THREE.RawShaderMaterial({
 		 uniforms: {
-		     bufferTexture: { type: "t", value: dataTexture },
-		     textureSize: {type: "v2", value: new THREE.Vector2( resX, resY )},  //shader doesn't have access to these global variables, so pass in the resolution
-                     threshold: {type: 'f', value: threshold},
-                     distance: {type: 'f', value: distance},
-                     distanceType: {type: 'f', value: distanceType},
-                     maxStates: {type: 'f', value: maxStates}
+		     bufferTexture: { type: 't', value: dataTexture },
+		     textureSize: {type: 'v2', value: new THREE.Vector2( resX, resY )},  //shader doesn't have access to these global variables, so pass in the resolution
+                     threshold: {type: 'f', value: options.threshold},
+                     distance: {type: 'f', value: options.distance},
+                     distanceType: {type: 'f', value: options.distanceType},
+                     maxStates: {type: 'f', value: options.maxStates}
 		 },
 		 vertexShader: document.getElementById( 'vertexShader' ).innerHTML,
 		 fragmentShader: document.getElementById( 'fragmentShader' ).innerHTML
@@ -164,7 +180,7 @@
          render();
          function render() {
 	     requestAnimationFrame( render );
-	     console.log("render");
+	     //console.log("render");
 	     //Draw to the active offscreen buffer (whatever is stored in FBO_B), that is the output of this rendering pass will be stored in the texture associated with FBO_B
 	     renderer.render(bufferScene, camera, FBO_B);
 	     
@@ -190,7 +206,7 @@
 	     for ( var i = 0; i < size; i++ ) {
 		 var stride = i * 4;
 
-                 var state = Math.floor(Math.floor(Math.random()*maxStates) * 255 / maxStates);
+                 var state = Math.floor(Math.floor(Math.random()*options.maxStates) * 255 / options.maxStates);
                  data[stride] = state;
                  data[stride+1] = state;
                  data[stride+2] = state;
