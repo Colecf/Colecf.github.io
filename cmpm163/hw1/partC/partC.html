@@ -12,9 +12,18 @@
     </head>
     <body>
         <div style="width: 100%; height: 50px; overflow: scroll">
-            <span style="display: inline-block;">Neighbor threshold (<span id="thresholdOutput">3</span>): <input onchange="optionChanged('threshold');" type="range" min="1" max="10" value="3" id="threshold"/></span>
-            <span style="display: inline-block;">Neighbor distance (<span id="distanceOutput">1</span>): <input onchange="optionChanged('distance');" type="range" min="1" max="10" value="1" id="distance"/></span>
-            <span style="display: inline-block;">Number of States (<span id="maxStatesOutput">3</span>): <input onchange="optionChanged('maxStates');" type="range" min="2" max="10" value="3" id="maxStates"/></span>
+            <span style="display: inline-block;">
+                Neighbor threshold (<span id="thresholdOutput">3</span>):
+                <input onchange="optionChanged('threshold');" type="range" min="1" max="10" value="3" id="threshold"/>
+            </span>
+            <span style="display: inline-block;">
+                Neighbor distance (<span id="distanceOutput">1</span>):
+                <input onchange="optionChanged('distance');" type="range" min="1" max="10" value="1" id="distance"/>
+            </span>
+            <span style="display: inline-block;">
+                Number of States (<span id="maxStatesOutput">3</span>):
+                <input onchange="optionChanged('maxStates');" type="range" min="2" max="10" value="3" id="maxStates"/>
+            </span>
             <span style="display: inline-block;">
                 Distance type:
                 <select id="distanceType" onchange="optionChanged('distanceType');">
@@ -24,10 +33,15 @@
             </span>
             <span style="display: inline-block;">
                 Presets:
-                <select id="distanceType" onchange="presetChanged();">
+                <select id="preset" onchange="presetChanged();">
                     <option value="none"></option>
-                    <option value="313">313</option>
-                    <option value="Amoeba">Amoeba</option>
+                    <option value="1,3,3,0" selected>313</option>
+                    <option value="3,10,2,1">Amoeba</option>
+                    <option value="2,5,2,1">Black vs White 2</option>
+                    <option value="2,2,6,1">Boiling</option>
+                    <option value="2,5,3,1">Cubism</option>
+                    <option value="3,5,8,0">Cyclic Spirals</option>
+                    <option value="3,4,5,1">Stripes</option>
                 </select>
             </span>
         </div>
@@ -143,7 +157,31 @@
              if(output)
                  output.innerHTML = slider.value;
              options[id] = parseInt(slider.value);
+             document.getElementById('preset').value = "none";
              reset();
+         }
+
+         function setPreset(distance, threshold, maxStates, distanceType) {
+             options.distance = distance;
+             options.threshold = threshold;
+             options.maxStates = maxStates;
+             options.distanceType = distanceType;
+             document.getElementById('distanceOutput').innerHTML = distance;
+             document.getElementById('distance').value = distance;
+             document.getElementById('thresholdOutput').innerHTML = threshold;
+             document.getElementById('threshold').value = threshold;
+             document.getElementById('maxStatesOutput').innerHTML = maxStates;
+             document.getElementById('maxStates').value = maxStates;
+             document.getElementById('distanceType').value = distanceType;
+         }
+
+         function presetChanged() {
+             var preset = document.getElementById('preset').value;
+             if(preset != "none") {
+                 var parts = preset.split(',').map(x => parseInt(x));
+                 setPreset(parts[0], parts[1], parts[2], parts[3]);
+                 reset();
+             }
          }
 
          function reset() {
